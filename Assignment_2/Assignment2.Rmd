@@ -1,0 +1,193 @@
+---
+title: "Assignment 2"
+output:
+  word_document: default
+  html_notebook: default
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+
+Rob DiVincenzo
+10-01-2023
+BA 64060
+
+This is the submission for Assignment 2.
+```{r}
+
+#Read data
+DF=read.csv("./UniversalBank.csv") # Read the Online Retail csv file
+#Load libraries
+library(dplyr)
+library(caret)
+library(ISLR)
+library(FNN)
+library(gmodels)
+set.seed(15)
+
+#Select variables in need
+DF <- select(DF, Age, Experience, Income, Family, CCAvg, Education, Mortgage, Personal.Loan, Securities.Account, CD.Account, Online, CreditCard) # Select a subset of variables
+
+#Create dummy variables for Education (categorical variable with 2+ levels)
+DF$Education_1 <- as.integer(DF$Education == 1)
+DF$Education_2 <- as.integer(DF$Education == 2)
+DF$Education_3 <- as.integer(DF$Education == 3)
+#Drop no longer needed Education field
+DF<-DF[,-6]
+
+#Partition Data into 60% Train, 40% val
+Train_Index=createDataPartition(DF$Age,p=0.60, list=FALSE)
+Train_Data = DF[Train_Index,] # create the training data; we include all columns; note the index is row, column
+Val_Data = DF[-Train_Index,] # create the val set
+
+#Create copy of data for normalization
+train.norm.df <- Train_Data
+val.norm.df <- Val_Data
+
+# use preProcess() from the caret package to normalize data, ignore target variable personal loan
+norm.values <- preProcess(Train_Data[,-7], method=c("center", "scale"))
+
+#Replace columns with normalized values
+train.norm.df[,-7] <- predict(norm.values, Train_Data[,-7])
+val.norm.df[,-7] <- predict(norm.values, Val_Data[,-7])
+
+#Train knn model on all variables except personal loan status since that's our target variable
+#nn<-knn(train = train.norm.df[,-7], val = val.norm.df[,-7], cl=train.norm.df$Personal.Loan,k=1)
+
+#Load a custom customer
+custom_customer_data <- data.frame(
+  Age = c(40),
+  Experience = c(10),
+  Income = c(84),
+  Family = c(2),
+  CCAvg = c(2),
+  Mortgage = c(0),
+  Securities.Account = c(0),
+  CD.Account = c(0),
+  Online = c(1),
+  CreditCard = c(1),
+  Education_1 = c(0),
+  Education_2 = c(1),
+  Education_3 = c(0)
+)
+
+#Normalize customer data
+customer.norm.df <- custom_customer_data
+customer.norm.df <- predict(norm.values, custom_customer_data)
+
+
+
+#Question 1)
+
+classification <- knn(train = train.norm.df[,-7], test = customer.norm.df, cl = train.norm.df$Personal.Loan, k = 1)
+# Add the predictions to the new data
+new_customer_data <- customer.norm.df
+new_customer_data$LoanAcceptance <- classification
+# Print the new data with predicted classification
+print(new_customer_data)
+
+#Question 1 answer: This customer would be classified as not accepting the loan.
+
+
+#End question 1
+
+
+
+#Question 2)
+
+#train model for k
+set.seed(1111)
+#model<-train(Personal.Loan~Age+Experience+Income+Family+CCAvg+Mortgage+Securities.Account+CD.Account+Online+CreditCard+Education_1+Education_2+Education_3, data=train.norm.df, method="knn")
+#model
+accuracy.df <- data.frame(k = seq(1, 14, 1), accuracy = rep(0, 14))
+
+# compute knn for different k on validation.
+for(i in 1:14) {
+knn.pred <- knn(train = train.norm.df[,-7], test = val.norm.df[,-7], 
+          cl = train.norm.df$Personal.Loan, k = i) 
+
+accuracy.df[i, 2] <- confusionMatrix(knn.pred, as.factor(val.norm.df$Personal.Loan))$overall[1]
+
+}
+accuracy.df  
+
+
+
+#Question 2 answer: Looking at the accuracy.df print K=5 was the highest accuracy and will be used as k.
+
+#End question 2
+
+
+#Question 3) Show confusion matrix
+
+set.seed(112)
+
+predicted_test_labels <- knn(train = train.norm.df[,-7], test = val.norm.df[,-7], cl = train.norm.df$Personal.Loan, k = 5)
+
+CrossTable(x=val.norm.df$Personal.Loan,y=predicted_test_labels, prop.chisq = FALSE)
+
+# End question 3
+
+#Question 4) try again with optimal k
+set.seed(26)
+
+classification <- knn(train = train.norm.df[,-7], test = customer.norm.df, cl = train.norm.df$Personal.Loan, k = 5)
+head(classification)
+new_customer_data_k5 <- customer.norm.df
+new_customer_data_k5$LoanAcceptance <- classification
+# Print the new data with predicted classification
+print(new_customer_data_k5)
+
+#Question 4 answer: The customer would still not be classified as accepting the loan
+
+# End question 4
+
+
+#Question 5)
+set.seed(60)
+
+#Re-partition Data into 50% Train, 30% validation 20% test
+Test_Index_2 = createDataPartition(DF$Age,p=0.2, list=FALSE) # 20% reserved for Test
+Test_Data_2 = DF[Test_Index_2,]
+TraVal_Data_2 = DF[-Test_Index_2,] # Validation and Training data is rest
+
+Train_Index_2 = createDataPartition(TraVal_Data_2$Age,p=0.75, list=FALSE) # 75% of remaining data as training
+Train_Data_2 = TraVal_Data_2[Train_Index_2,]
+Validation_Data_2 = TraVal_Data_2[-Train_Index_2,] # rest as validation
+
+#normalize
+train.norm.df_2 <- Train_Data_2
+val.norm.df_2 <- Validation_Data_2
+traval.norm.df_2 <- TraVal_Data_2
+test.norm.df_2 <- Test_Data_2
+
+norm.values_2 <- preProcess(Train_Data_2[,-7], method=c("center", "scale"))
+
+train.norm.df_2[,-7] <- predict(norm.values_2, Train_Data_2[,-7])
+val.norm.df_2[,-7] <- predict(norm.values_2, Validation_Data_2[,-7])
+traval.norm.df_2[,-7] <- predict(norm.values_2, traval.norm.df_2[,-7])
+test.norm.df_2[,-7] <- predict(norm.values_2, Test_Data_2[,-7])
+
+predicted_train_labels_2 <- knn(train = train.norm.df_2[,-7], test = train.norm.df_2[,-7], cl = train.norm.df_2$Personal.Loan, k = 5)
+predicted_val_labels_2 <- knn(train = train.norm.df_2[,-7], test = val.norm.df_2[,-7], cl = train.norm.df_2$Personal.Loan, k = 5)
+predicted_test_labels_2 <- knn(train = train.norm.df_2[,-7], test = test.norm.df_2[,-7], cl = train.norm.df_2$Personal.Loan, k = 5)
+
+#Train confusion matrix
+CrossTable(x=train.norm.df_2$Personal.Loan,y=predicted_train_labels_2, prop.chisq = FALSE)
+
+#Val confusion Matrix
+CrossTable(x=val.norm.df_2$Personal.Loan,y=predicted_val_labels_2, prop.chisq = FALSE)
+
+#Test confusion matrix
+CrossTable(x=test.norm.df_2$Personal.Loan,y=predicted_test_labels_2, prop.chisq = FALSE)
+
+#Question 5 Answer:
+#Comparing the training and validation test confusion matrices to the test confusion matrix, it appears the train confusion matrix is more accurate. This result is likely because the prediction model is being applied against the same dataset by which it was trained. In order to get a true test of the model, the model must be applied to unseen data like in the validation data. The performance of the model on the validation data and the test data is much closer, which is to be expected since they both represent new data. Overall, the validation confusion matrix could be a truer reading of the model's performance since the dataset is larger (30% vs. 20%), it contains more samples.
+
+#End question 5
+
+
+
+
+
+```
