@@ -1,0 +1,108 @@
+---
+title: "Assignment 4"
+output:
+  word_document: default
+  html_notebook: default
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+
+Rob DiVincenzo
+10-29-2023
+BA 64060
+
+This is the submission for Assignment 4.
+```{r}
+
+#Read data
+DF=read.csv("./Pharmaceuticals.csv") # Read the Pharmaceuticals csv file
+#Load libraries
+library(ISLR)
+library(tidyverse)  # data manipulation
+library(factoextra) # clustering algorithms & visualization
+library(flexclust)
+
+
+set.seed(123)
+
+
+```
+
+```{r}
+#part a) Use only the numerical variables (1 to 9) to cluster the 21 firms. Justify the various choices made in conducting the cluster analysis, such as weights for different variables, the specific clustering algorithm(s) used, the number of clusters formed, and so on
+
+#Select only the 9 numerical variables
+DF <- select(DF, Market_Cap, Beta, PE_Ratio, ROE, ROA, Asset_Turnover, Leverage, Rev_Growth, Net_Profit_Margin)
+
+# Scaling the data frame (z-score) 
+DF <- scale(DF)
+distance <- get_dist(DF)
+fviz_dist(distance)
+
+
+```
+The graph shows the distance between pharmaceutical companies. We will now cluster them with k-means algorithm starting with k=3 to analyze in 3 different clusters. Three clusters in our analysis makes sense from an equities analysis point of view because perhaps these companies could be analyzed as a natural categorization (small / mid / large caps, value / growth / quality stock, or perhaps underperformer / benchmark / overperformer).
+
+```{r}
+
+#run kmeans to cluster the data
+k3 <- kmeans(DF, centers = 3, nstart = 25) # k = 3, number of restarts = 25
+# Visualize the output
+k3$size # Number of companies in each cluster
+fviz_cluster(k3, data = DF) # Visualize the output
+
+```
+
+
+The output shows three distinct clusters.
+
+Cluster 1 contains 4 companies, Cluster 2 contains 11 companies, and Cluster 3 contains 6. Since Cluster 2 contains over 50% of the sample, we'll try k=4 for a better distribution of clusters.
+
+
+```{r}
+
+#run kmeans to cluster the data
+k4 <- kmeans(DF, centers = 4, nstart = 25) # k = 3, number of restarts = 25
+# Visualize the output
+k4$size # Number of companies in each cluster
+fviz_cluster(k4, data = DF) # Visualize the output
+
+```
+
+Cluster 1 now contains 8, Cluster 2 contains 4, Cluster 3 contains 3, and Cluster 4 contains 6 companies. The clusters are more balanced, with no cluster containing more than 50% and the largest cluster is not 3x larger than the smallest number (which is the case in k=5).
+
+
+```{r}
+# b) Interpret the clusters with respect to the numerical variables used in forming the clusters.
+k4$centers # output the centers
+```
+Interpreting the data, we can indeed categorize many of these clusters into the categories we identified as potential above.
+
+Cluster 1 generally has market caps which are neither high or low looking at the centers output, and no company is over 100B market cap or under 6.3B. They have the lowest Beta among the categories and among the highest net profit. Their PE ratio and revenue growth are both low. These stocks are less risky, but have limited upside.
+
+Cluster 2 contains the largest market caps among the companies. They also have the highest profit margin paired with high revenue growth. While these companies are more risky (Beta) and more expensive (PE_Ratio) than Cluster 1, they are growing faster and are likely industry leaders with more potential upside than Cluster 1.
+
+Cluster 3 contains a cluster of risky and generally underperforming companies. These companies have the lowest net profit margins, are high beta (risk), smaller than average market cap, and have the highest price to earnings ratio. They're the most expensive cluster according to PE ratios. They are the worst performers according to net profit margin, and are growing well under average according to revenue growth. This cluster seems popular by price, but has the highest potential for downside from current market price. The equity analyst should strongly consider avoiding these stocks on the long side. They should also consider them as a sell relative to the sample.
+
+Cluster 4 contains a cluster of the smallest caps. They're also the fastest growing companies of the entire set. While they're still earning a negative net margin, it's not nearly as bad as Cluster 3 and the growth potential is promising. These are the riskiest with the highest beta and highest leverage of the group, but their low P/E ratio is attractive given their high revenue growth. Aggressive boom or bust bet with the highest upside and also highest risk of bust.
+
+
+```{r}
+# c) Is there a pattern in the clusters with respect to the numerical variables (10 to 12)? (those not used in forming the clusters)
+```
+
+There is indeed a correlation to the unused columns. Specifically I looked at median recommendation. Cluster 1 most likely falls into the "Hold" category, consistent with lower risk, value stocks. Value stocks typically don't grow or shrink quickly, but they provide stable dividends. That is why many investors hold them in long term. Cluster 2 is likely to be a buy or a hold, consistent with high-growth large-cap industry leaders. They are only categorized as buy (50%) or hold (50%). Cluster 3 surprisingly also contained only buy or hold recommendations (and the only STRONG buy recommendation). These stocks could be popular or well-hyped given their PE ratio relative to their high beta, and low revenue growth and net profit margin. Perhaps our analysis is inaccurate and the analysts see or know more in these companies than the data supplies. However if our analysis is correct, the analysts recommended poor stocks for investors. It could simply be that the price is going up, so analysts are recommending them. Similar to a "momentum stock." The last cluster, Cluster 4, accurately captures the high risk / high reward of this cluster. Cluster 4 contains the most recommended buys and ties for the most recommended sells. Only 1 stock in Cluster 4 is a recommended hold, reinforcing the analysis that these are more risky stocks than, say, Cluster 1.
+
+```{r}
+# d) Provide an appropriate name for each cluster using any or all of the variables in the dataset.
+```
+
+Cluster 1 - Mid cap value, dividend stocks. Conservative and low growth. Generally worth holding in a mature portfolio with low risk tolerance.
+
+Cluster 2 - Large cap growth, blue chips. Industry leaders, buy and hold. Generally worth holding in any portfolio.
+
+Cluster 3 - Mid cap blend, momentum stocks. Overpriced for the risk according to the data, but high price and high interest for other reasons unknown to the data. Generally worth having positions in a short term trading portfolio (both long and short).
+
+Cluster 4 - Small cap growth. Boom or bust potential. Worth holding in small amounts or in an immature portfolio with higher risk tolerance.
+
